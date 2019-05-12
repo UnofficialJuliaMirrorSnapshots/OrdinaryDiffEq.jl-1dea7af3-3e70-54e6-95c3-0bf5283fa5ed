@@ -331,6 +331,7 @@ alg_order(alg::ROCK2) = 2
 alg_order(alg::ROCK4) = 4
 
 alg_order(alg::ESERK5) = 5
+alg_order(alg::SERK2v2) = 2
 
 alg_order(alg::RKC) = 2
 alg_order(alg::IRKC) = 2
@@ -467,20 +468,6 @@ function unwrap_alg(integrator, is_stiff)
   end
 end
 
-function unwrap_cache(integrator, is_stiff)
-  alg   = integrator.alg
-  cache = integrator.cache
-  iscomp = alg isa CompositeAlgorithm
-  if !iscomp
-    return cache
-  elseif alg.choice_function isa AutoSwitch
-    num = is_stiff ? 2 : 1
-    return cache.caches[num]
-  else
-    return cache.caches[integrator.cache.current]
-  end
-end
-
 # Whether `uprev` is used in the algorithm directly.
 uses_uprev(alg::OrdinaryDiffEqAlgorithm, adaptive::Bool) = true
 uses_uprev(alg::ORK256, adaptive::Bool) = false
@@ -513,7 +500,7 @@ uses_uprev(alg::CKLLSRK85_4FM_4R, adaptive::Bool) = adaptive
 uses_uprev(alg::CKLLSRK75_4M_5R, adaptive::Bool) = adaptive
 
 ispredictive(alg::OrdinaryDiffEqAlgorithm) = false
-ispredictive(alg::Union{RKC}) = true
+ispredictive(alg::Union{RKC,SERK2v2}) = true
 ispredictive(alg::OrdinaryDiffEqNewtonAdaptiveAlgorithm) = alg.controller === :Predictive
 isstandard(alg::OrdinaryDiffEqNewtonAdaptiveAlgorithm) = alg.controller === :Standard
 isstandard(alg::Union{GenericImplicitEuler,GenericTrapezoid,VCABM}) = true

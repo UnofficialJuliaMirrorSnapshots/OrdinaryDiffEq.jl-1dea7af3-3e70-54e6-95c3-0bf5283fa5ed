@@ -598,8 +598,8 @@ function perform_step!(integrator,cache::IRKCConstantCache,repeat_step=false)
   # error estimate
   if isnewton(nlsolver) && integrator.opts.adaptive
     update_W!(integrator, cache, dt, false)
-    LU_W = get_W(nlsolver)
-    tmp = LU_W.L * (LU_W.U * (@.. dt*(0.5*(cache.du₂ - du₂) + (0.5 - μs₁)*(cache.du₁ - du₁))))
+    tmp = dt*(0.5*(cache.du₂ - du₂) + (0.5 - μs₁)*(cache.du₁ - du₁))
+    tmp = _reshape(get_W(nlsolver) \ _vec(tmp), axes(tmp))
     atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol, integrator.opts.reltol, integrator.opts.internalnorm, t)
     integrator.EEst = integrator.opts.internalnorm(atmp,t)
   end
@@ -728,7 +728,12 @@ function perform_step!(integrator, cache::IRKCCache, repeat_step=false)
   # error estimate
   if isnewton(nlsolver) && integrator.opts.adaptive
     update_W!(integrator, cache, dt, false)
-    mul!(tmp, get_W(nlsolver), @.. dt*(0.5*(du₂ - f2ⱼ₋₁) + (0.5 - μs₁)*(du₁ - f1ⱼ₋₁)))
+    @.. gprev = dt*0.5*(du₂ - f2ⱼ₋₁) + dt*(0.5 - μs₁)*(du₁ - f1ⱼ₋₁)
+    if DiffEqBase.has_invW(f)
+        mul!(vec(tmp),get_W(nlsolver),vec(gprev))
+      else
+        cache.linsolve(vec(tmp),get_W(nlsolver),vec(gprev),false)
+    end
     calculate_residuals!(atmp, tmp, uprev, u, integrator.opts.abstol, integrator.opts.reltol, integrator.opts.internalnorm, t)
     integrator.EEst = integrator.opts.internalnorm(atmp,t)
   end
@@ -737,7 +742,6 @@ function perform_step!(integrator, cache::IRKCCache, repeat_step=false)
   integrator.k[1] = integrator.fsalfirst
   integrator.k[2] = integrator.fsallast
   integrator.u = u
-  @.. k = du₁ + du₂
 end
 
 function initialize!(integrator, cache::ESERK5ConstantCache)
@@ -759,7 +763,7 @@ end
   mdeg = Int(floor(sqrt(abs(dt)*integrator.eigen_est/0.98))+1)
   mdeg = (mdeg > 2000) ? 2000 : mdeg
   cache.mdeg = mdeg
-  choosedeg_ESERK!(cache)
+  choosedeg_SERK!(integrator,cache)
   mdeg = cache.mdeg
   start = cache.start
   internal_deg = cache.internal_deg
@@ -837,7 +841,7 @@ end
   mdeg = Int(floor(sqrt(abs(dt)*integrator.eigen_est/0.98))+1)
   mdeg = (mdeg > 2000) ? 2000 : mdeg
   ccache.mdeg = mdeg
-  choosedeg_ESERK!(cache)
+  choosedeg_SERK!(integrator,cache)
   mdeg = ccache.mdeg
   start = ccache.start
   internal_deg = ccache.internal_deg
@@ -894,5 +898,128 @@ end
   f(integrator.fsallast, u, p, t+dt)
   integrator.destats.nf += 1
   integrator.k[2] = integrator.fsallast
+  integrator.u = u
+end
+
+function initialize!(integrator, cache::SERK2v2ConstantCache)
+  integrator.kshortsize = 2
+  integrator.k = typeof(integrator.k)(undef, integrator.kshortsize)
+  integrator.fsalfirst = integrator.f(integrator.uprev, integrator.p, integrator.t) # Pre-start fsal
+  integrator.destats.nf += 1
+  # Avoid undefined entries if k is an array of arrays
+  integrator.fsallast = zero(integrator.fsalfirst)
+  integrator.k[1] = integrator.fsalfirst
+  integrator.k[2] = integrator.fsallast
+end
+
+@muladd function perform_step!(integrator, cache::SERK2v2ConstantCache, repeat_step=false)
+  @unpack t, dt, uprev, u, f, p, fsalfirst = integrator
+  @unpack ms, Bᵢ= cache
+  maxeig!(integrator, cache)
+
+  mdeg = Int(floor(sqrt(abs(dt)*integrator.eigen_est/0.8))+1)
+  mdeg = (mdeg > 250) ? 250 : mdeg
+  cache.mdeg = mdeg
+  choosedeg_SERK!(integrator,cache)
+  mdeg = cache.mdeg
+  start = cache.start
+  internal_deg = cache.internal_deg
+  α = 1.0/(0.4*mdeg^2)
+
+  uᵢ₋₁ = uprev
+  uᵢ₋₂ = uprev
+  Sᵢ   = Bᵢ[start]*uprev
+  for i in 1:10
+    k = f(uᵢ₋₁, p, t+(1+(i-1)*internal_deg^2)*α*dt)
+    integrator.destats.nf += 1
+    u    = uᵢ₋₁ + α*dt*k
+    Sᵢ   = Sᵢ + Bᵢ[start + (i-1)*internal_deg + 1]*u
+    uᵢ₋₂ = uᵢ₋₁
+    uᵢ₋₁ = u
+    for j in 2:internal_deg
+      k = f(uᵢ₋₁, p, t+(j^2+(i-1)*internal_deg^2)*α*dt)
+      integrator.destats.nf += 1
+      u = 2*uᵢ₋₁ - uᵢ₋₂ + 2*α*dt*k
+      Sᵢ= Sᵢ + Bᵢ[start+j+(i-1)*internal_deg]*u
+      if j*i < mdeg
+        uᵢ₋₂ = uᵢ₋₁
+        uᵢ₋₁ = u
+      end
+    end
+  end
+  u = Sᵢ
+  k = f(u,p,t+dt)
+  integrator.destats.nf += 1
+
+  if integrator.opts.adaptive
+    tmp = u - uprev - dt*k
+    atmp = calculate_residuals(tmp, uprev, u, integrator.opts.abstol, integrator.opts.reltol,integrator.opts.internalnorm,t)
+    integrator.EEst = integrator.opts.internalnorm(atmp,t)
+  end
+  integrator.k[1] = integrator.fsalfirst
+  integrator.k[2] = integrator.fsallast = k
+  integrator.u = u
+end
+
+function initialize!(integrator, cache::SERK2v2Cache)
+  integrator.kshortsize = 2
+  resize!(integrator.k, integrator.kshortsize)
+  integrator.fsalfirst = cache.fsalfirst
+  integrator.fsallast = cache.k
+  integrator.k[1] = integrator.fsalfirst
+  integrator.k[2] = integrator.fsallast
+  integrator.f(integrator.fsalfirst, integrator.uprev, integrator.p, integrator.t)
+  integrator.destats.nf += 1
+end
+
+@muladd function perform_step!(integrator, cache::SERK2v2Cache, repeat_step=false)
+  @unpack t, dt, uprev, u, f, p, fsalfirst = integrator
+  @unpack uᵢ₋₁, uᵢ₋₂, Sᵢ, tmp, atmp, k = cache
+  @unpack ms, Bᵢ = cache.constantcache
+  ccache = cache.constantcache
+  maxeig!(integrator, cache)
+
+  mdeg = Int(floor(sqrt(abs(dt)*integrator.eigen_est/0.8))+1)
+  mdeg = (mdeg > 250) ? 250 : mdeg
+  ccache.mdeg = mdeg
+  choosedeg_SERK!(integrator,cache)
+  mdeg = ccache.mdeg
+  start = ccache.start
+  internal_deg = ccache.internal_deg
+  α = 1.0/(0.4*mdeg^2)
+
+  @.. uᵢ₋₁ = uprev
+  @.. uᵢ₋₂ = uprev
+  @.. Sᵢ   = Bᵢ[start]*uprev
+  for i in 1:10
+    f(k, uᵢ₋₁, p, t+(1+(i-1)*internal_deg^2)*α*dt)
+    integrator.destats.nf += 1
+    @.. u    = uᵢ₋₁ + α*dt*k
+    @.. Sᵢ   = Sᵢ + Bᵢ[start + (i-1)*internal_deg + 1]*u
+    @.. uᵢ₋₂ = uᵢ₋₁
+    @.. uᵢ₋₁ = u
+    for j in 2:internal_deg
+      f(k, uᵢ₋₂, p, t+(j^2+(i-1)*internal_deg^2)*α*dt)
+      integrator.destats.nf += 1
+      @.. u = 2*uᵢ₋₁ - uᵢ₋₂ + 2*α*dt*k
+      @.. Sᵢ= Sᵢ + Bᵢ[start+j+(i-1)*internal_deg]*u
+      if j < mdeg
+        @.. uᵢ₋₂ = uᵢ₋₁
+        @.. uᵢ₋₁ = u
+      end
+    end
+  end
+  @.. u = Sᵢ
+  f(k, u, p, t+dt)
+  integrator.destats.nf += 1
+
+
+  if integrator.opts.adaptive
+    @.. tmp = u - uprev - dt*k
+    calculate_residuals!(atmp, tmp, uprev, u, integrator.opts.abstol, integrator.opts.reltol,integrator.opts.internalnorm,t)
+    integrator.EEst = integrator.opts.internalnorm(atmp,t)
+  end
+  integrator.k[1] = integrator.fsalfirst
+  integrator.k[2] = integrator.fsallast = k
   integrator.u = u
 end
