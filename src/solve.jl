@@ -64,7 +64,7 @@ function DiffEqBase.__init(
       error("This solver is not able to use mass matrices.")
     end
   elseif !(typeof(prob)<:DiscreteProblem) &&
-         !(typeof(alg) <:MassMatrixAlgorithms) &&
+         !is_mass_matrix_alg(alg) &&
          prob.f.mass_matrix != I
     error("This solver is not able to use mass matrices.")
   end
@@ -294,7 +294,8 @@ function DiffEqBase.__init(
     cacheType =  OrdinaryDiffEqCache
   end
 
-  eigen_est = 1/one(tType) # rate/state = (state/time)/state = 1/t units, internalnorm drops units
+  # rate/state = (state/time)/state = 1/t units, internalnorm drops units
+  eigen_est = one(uBottomEltypeNoUnits)/one(tType) 
   tprev = t
   dtcache = tType(dt)
   dtpropose = tType(dt)

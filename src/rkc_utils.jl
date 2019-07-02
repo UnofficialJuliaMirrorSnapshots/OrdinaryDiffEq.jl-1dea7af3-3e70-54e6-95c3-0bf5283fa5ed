@@ -1,10 +1,10 @@
 # This function calculates the largest eigenvalue
 # (absolute value wise) by power iteration.
-const RKCAlgs = Union{RKC,IRKC,ESERK5,SERK2v2}
+const RKCAlgs = Union{RKC,IRKC,ESERK4,ESERK5,SERK2v2}
 function maxeig!(integrator, cache::OrdinaryDiffEqConstantCache)
   isfirst = integrator.iter == 1 || integrator.u_modified
   @unpack t, dt, uprev, u, f, p, fsalfirst = integrator
-  maxiter = (typeof(integrator.alg) <: Union{ESERK5,SERK2v2}) ? 100 : 50
+  maxiter = (typeof(integrator.alg) <: Union{ESERK4,ESERK5,SERK2v2}) ? 100 : 50
 
   safe = (typeof(integrator.alg) <: RKCAlgs) ? 1.0 : 1.2
   # Initial guess for eigenvector `z`
@@ -44,7 +44,7 @@ function maxeig!(integrator, cache::OrdinaryDiffEqConstantCache)
     z *= quot
   else
     dz_u = pert
-    z = dz_u
+    z = dz_u*ones(z)
   end # endif
   # Start power iteration
   integrator.eigen_est = 0
@@ -86,7 +86,8 @@ function maxeig!(integrator, cache::OrdinaryDiffEqConstantCache)
       nind = length(z)
       if (nind != 1)
         ind = 1 + iter % nind
-        z[ind] = uprev[ind] - (z[ind] - uprev[ind])
+        # val = (uprev[ind] - (z[ind] - uprev[ind]))*one(eltype(z))*2
+        vec(z) .= vec(z) .* (1 .- 2 .*((1:length(z)) .== ind))
       else
         z = -z
       end
@@ -100,7 +101,7 @@ function maxeig!(integrator, cache::OrdinaryDiffEqMutableCache)
   @unpack t, dt, uprev, u, f, p, fsalfirst = integrator
   fz, z, atmp = cache.k, cache.tmp, cache.atmp
   ccache = cache.constantcache
-  maxiter = (typeof(integrator.alg) <: Union{ESERK5,SERK2v2}) ? 100 : 50
+  maxiter = (typeof(integrator.alg) <: Union{ESERK4,ESERK5,SERK2v2}) ? 100 : 50
   safe = (typeof(integrator.alg) <: RKCAlgs) ? 1.0 : 1.2
   # Initial guess for eigenvector `z`
   if isfirst
@@ -139,7 +140,7 @@ function maxeig!(integrator, cache::OrdinaryDiffEqMutableCache)
     @.. z *= quot
   else
     dz_u = pert
-    @.. z = dz_u
+    @.. z = dz_u*one(eltype(z))
   end # endif
   # Start power iteration
   integrator.eigen_est = 0
@@ -180,7 +181,8 @@ function maxeig!(integrator, cache::OrdinaryDiffEqMutableCache)
       nind = length(uprev)
       if (nind != 1)
         ind = 1 + iter % nind
-        z[ind] = uprev[ind] - (z[ind] - uprev[ind])
+        # val = (uprev[ind] - (z[ind] - uprev[ind]))*one(eltype(z))
+        vec(z) .= vec(z) .* (1 .- 2 .*((1:length(z)) .== ind))
       else
         z = -z
       end
@@ -240,6 +242,20 @@ function choosedeg_SERK!(integrator,cache::T) where T
     elseif cache.mdeg <= 1000
       cache.internal_deg = 100
     elseif cache.mdeg <= 2000
+      cache.internal_deg = 200
+    end
+  end
+
+  if integrator.alg isa ESERK4
+    if cache.mdeg <= 20
+      cache.internal_deg = 2
+    elseif cache.mdeg <= 100
+      cache.internal_deg = 10
+    elseif cache.mdeg <= 500
+      cache.internal_deg = 25
+    elseif cache.mdeg <= 1000
+      cache.internal_deg = 100
+    elseif cache.mdeg <= 4000
       cache.internal_deg = 200
     end
   end

@@ -489,6 +489,7 @@ end
 ROCK4(;min_stages=0,max_stages=152) = ROCK4(min_stages,max_stages)
 
 # SERK methods
+struct ESERK4 <: OrdinaryDiffEqAdaptiveAlgorithm end
 struct ESERK5 <: OrdinaryDiffEqAdaptiveAlgorithm end
 struct SERK2v2 <: OrdinaryDiffEqAdaptiveAlgorithm
   controller::Symbol
@@ -926,11 +927,6 @@ MEBDF2(;chunk_size=0,autodiff=true,diff_type=Val{:forward},
 #################################################
 
 ### Algorithm Groups
-
-const MassMatrixAlgorithms = Union{OrdinaryDiffEqRosenbrockAlgorithm,
-                                   OrdinaryDiffEqRosenbrockAdaptiveAlgorithm,
-                                   ImplicitEuler,ImplicitMidpoint,MEBDF2,
-                                   RadauIIA5}
 
 const MultistepAlgorithms = Union{IRKN3,IRKN4,
                                   ABDF2,
