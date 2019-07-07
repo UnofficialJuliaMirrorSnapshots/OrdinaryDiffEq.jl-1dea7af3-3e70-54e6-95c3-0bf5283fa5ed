@@ -148,7 +148,9 @@ end
 
 function alg_cache(alg::IRKC,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{false}})
   γ, c = 1.0, 1.0
-  @oopnlsolve
+  W = oop_generate_W(alg,u,uprev,p,t,dt,f,uEltypeNoUnits)
+  nlsolver = oopnlsolve(alg,u,uprev,p,t,dt,f,W,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,γ,c)
+  @getoopnlsolvefields
   zprev = u
   du₁ = rate_prototype; du₂ = rate_prototype
   IRKCConstantCache(50,zprev,uf,nlsolver,du₁,du₂)
@@ -156,7 +158,9 @@ end
 
 function alg_cache(alg::IRKC,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{true}})
   γ, c = 1.0, 1.0
-  @iipnlsolve
+  J, W = iip_generate_W(alg,u,uprev,p,t,dt,f,uEltypeNoUnits)
+  nlsolver = iipnlsolve(alg,u,uprev,p,t,dt,f,W,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,γ,c)
+  @getiipnlsolvefields
 
   gprev = similar(u)
   gprev2 = similar(u)
@@ -258,7 +262,7 @@ function alg_cache(alg::ESERK5,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUn
   ESERK5ConstantCache(u)
 end
 
-mutable struct SERK2v2ConstantCache{T, zType} <: OrdinaryDiffEqConstantCache
+mutable struct SERK2ConstantCache{T, zType} <: OrdinaryDiffEqConstantCache
   ms::SVector{11, Int}
   zprev::zType
   Bᵢ::Vector{T}
@@ -267,7 +271,7 @@ mutable struct SERK2v2ConstantCache{T, zType} <: OrdinaryDiffEqConstantCache
   internal_deg::Int
 end
 
-@cache struct SERK2v2Cache{uType,rateType,uNoUnitsType} <: OrdinaryDiffEqMutableCache
+@cache struct SERK2Cache{uType,rateType,uNoUnitsType} <: OrdinaryDiffEqMutableCache
   u::uType
   uprev::uType
   uᵢ₋₁::uType
@@ -277,11 +281,11 @@ end
   atmp::uNoUnitsType
   fsalfirst::rateType
   k::rateType
-  constantcache::SERK2v2ConstantCache
+  constantcache::SERK2ConstantCache
 end
 
-function alg_cache(alg::SERK2v2,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{true}})
-  constantcache = SERK2v2ConstantCache(u)
+function alg_cache(alg::SERK2,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{true}})
+  constantcache = SERK2ConstantCache(u)
   uᵢ₋₁ = similar(u)
   uᵢ₋₂ = similar(u)
   Sᵢ   = similar(u)
@@ -289,9 +293,9 @@ function alg_cache(alg::SERK2v2,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoU
   atmp = similar(u,uEltypeNoUnits)
   fsalfirst = zero(rate_prototype)
   k = zero(rate_prototype)
-  SERK2v2Cache(u, uprev, uᵢ₋₁, uᵢ₋₂, Sᵢ, tmp, atmp, fsalfirst, k, constantcache)
+  SERK2Cache(u, uprev, uᵢ₋₁, uᵢ₋₂, Sᵢ, tmp, atmp, fsalfirst, k, constantcache)
 end
 
-function alg_cache(alg::SERK2v2,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{false}})
-  SERK2v2ConstantCache(u)
+function alg_cache(alg::SERK2,u,rate_prototype,uEltypeNoUnits,uBottomEltypeNoUnits,tTypeNoUnits,uprev,uprev2,f,t,dt,reltol,p,calck,::Type{Val{false}})
+  SERK2ConstantCache(u)
 end

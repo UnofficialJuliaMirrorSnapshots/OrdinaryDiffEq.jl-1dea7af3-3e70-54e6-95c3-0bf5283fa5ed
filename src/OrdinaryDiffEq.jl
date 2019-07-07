@@ -40,13 +40,15 @@ module OrdinaryDiffEq
 
   using DiffEqBase: check_error!, @def, @.. , _vec, _reshape
 
-  using DiffEqBase: nlsolvefail, isnewton, set_new_W!, get_W, @iipnlsolve, @oopnlsolve
+  using DiffEqBase: nlsolvefail, isnewton, set_new_W!, get_W, iipnlsolve, oopnlsolve, @getiipnlsolvefields, @getoopnlsolvefields
 
   using DiffEqBase: NLSolver
 
   using DiffEqBase: FastConvergence, Convergence, SlowConvergence, VerySlowConvergence, Divergence
 
   import DiffEqBase: calculate_residuals, calculate_residuals!, nlsolve_f, unwrap_cache, @tight_loop_macros, islinear
+
+  import DiffEqBase: iip_get_uf, oop_get_uf, build_jac_config
 
   const CompiledFloats = Union{Float32,Float64,
     ForwardDiff.Dual{ForwardDiff.Tag{T,W},K,3} where {T,W<:Union{Float64,Float32},
@@ -208,7 +210,7 @@ module OrdinaryDiffEq
   export Nystrom4, Nystrom4VelocityIndependent, Nystrom5VelocityIndependent,
          IRKN3, IRKN4, DPRKN6, DPRKN8, DPRKN12, ERKN4, ERKN5
 
-  export ROCK2, ROCK4, RKC, IRKC, ESERK4, ESERK5, SERK2v2
+  export ROCK2, ROCK4, RKC, IRKC, ESERK4, ESERK5, SERK2
 
   export AB3, AB4, AB5, ABM32, ABM43, ABM54
 
@@ -229,7 +231,7 @@ module OrdinaryDiffEq
   export AutoSwitch, AutoTsit5, AutoDP5,
          AutoVern6, AutoVern7, AutoVern8, AutoVern9
 
-  export AitkenNeville, ExtrapolationMidpointDeuflhard, ExtrapolationMidpointHairerWanner
+  export AitkenNeville, ExtrapolationMidpointDeuflhard, ExtrapolationMidpointHairerWanner, ImplicitEulerExtrapolation
 
   export KuttaPRK2p5
 end # module

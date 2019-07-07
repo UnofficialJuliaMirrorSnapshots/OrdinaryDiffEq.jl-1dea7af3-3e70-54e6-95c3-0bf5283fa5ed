@@ -129,6 +129,7 @@ get_current_adaptive_order(alg::CompositeAlgorithm,cache) = alg_adaptive_order(a
 alg_order(alg::FunctionMap) = 0
 alg_order(alg::Euler) = 1
 alg_order(alg::AitkenNeville) = alg.init_order
+alg_order(alg::ImplicitEulerExtrapolation) = alg.init_order
 alg_order(alg::Heun) = 2
 alg_order(alg::Ralston) = 2
 alg_order(alg::LawsonEuler) = 1
@@ -335,7 +336,7 @@ alg_order(alg::ROCK4) = 4
 
 alg_order(alg::ESERK4) = 4
 alg_order(alg::ESERK5) = 5
-alg_order(alg::SERK2v2) = 2
+alg_order(alg::SERK2) = 2
 
 alg_order(alg::RKC) = 2
 alg_order(alg::IRKC) = 2
@@ -502,7 +503,7 @@ uses_uprev(alg::CKLLSRK75_4M_5R, adaptive::Bool) = adaptive
 
 ispredictive(alg::OrdinaryDiffEqAlgorithm) = false
 ispredictive(alg::Union{RKC}) = true
-ispredictive(alg::Union{SERK2v2}) = alg.controller === :Predictive
+ispredictive(alg::Union{SERK2}) = alg.controller === :Predictive
 ispredictive(alg::OrdinaryDiffEqNewtonAdaptiveAlgorithm) = alg.controller === :Predictive
 isstandard(alg::OrdinaryDiffEqNewtonAdaptiveAlgorithm) = alg.controller === :Standard
 isstandard(alg::Union{GenericImplicitEuler,GenericTrapezoid,VCABM}) = true

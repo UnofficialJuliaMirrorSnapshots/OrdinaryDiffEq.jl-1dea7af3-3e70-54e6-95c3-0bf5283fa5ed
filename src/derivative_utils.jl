@@ -317,7 +317,7 @@ function calc_W!(integrator, cache::OrdinaryDiffEqMutableCache, dtgamma, repeat_
   # we only want to factorize the linear operator once
   new_jac = true
   new_W = true
-  if (f isa ODEFunction && islinear(f.f)) || (f isa SplitFunction && islinear(f.f1.f))
+  if (f isa ODEFunction && islinear(f.f)) || (integrator.alg isa SplitAlgorithms && f isa SplitFunction && islinear(f.f1.f))
     new_jac = false
     @goto J2W # Jump to W calculation directly, because we already have J
   end
@@ -390,14 +390,17 @@ update_W!(integrator, cache, dt, repeat_step) =
 
 function update_W!(nlsolver::NLSolver, integrator, cache::OrdinaryDiffEqMutableCache, dt, repeat_step)
   if isnewton(nlsolver)
-    calc_W!(integrator, cache, dt, repeat_step)
+    calc_W!(integrator, cache, dt, repeat_step, true)
   end
   nothing
 end
 
 function update_W!(nlsolver::NLSolver, integrator, cache::OrdinaryDiffEqConstantCache, dt, repeat_step)
   if isnewton(nlsolver)
-    DiffEqBase.set_W!(nlsolver, calc_W!(integrator, cache, dt, repeat_step))
+    DiffEqBase.set_W!(nlsolver, calc_W!(integrator, cache, dt, repeat_step, true))
   end
   nothing
 end
+
+iip_get_uf(alg::OrdinaryDiffEqAlgorithm,nf,t,p) = DiffEqDiffTools.UJacobianWrapper(nf,t,p)
+oop_get_uf(alg::OrdinaryDiffEqAlgorithm,nf,t,p) = DiffEqDiffTools.UDerivativeWrapper(nf,t,p)
