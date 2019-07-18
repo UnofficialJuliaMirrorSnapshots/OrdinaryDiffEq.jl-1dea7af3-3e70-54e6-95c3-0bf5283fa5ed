@@ -285,21 +285,20 @@ end
     invdtgamma = inv(dtgamma)
     if MT <: UniformScaling
       copyto!(W, J)
-      @simd for i in diagind(W)
-          W[i] = muladd(-mass_matrix.λ, invdtgamma, J[i])
-      end
+      idxs = diagind(W)
+      λ = -mass_matrix.λ
+      @.. @view(W[idxs]) = muladd(λ, invdtgamma, @view(J[idxs]))
     else
-      for j in iijj[2]
-        @simd for i in iijj[1]
-          W[i, j] = muladd(-mass_matrix[i, j], invdtgamma, J[i, j])
-        end
-      end
+      @.. W = muladd(-mass_matrix, invdtgamma, J)
     end
   else
-    for j in iijj[2]
-      @simd for i in iijj[1]
-        W[i, j] = muladd(dtgamma, J[i, j], -mass_matrix[i, j])
-      end
+    if MT <: UniformScaling
+      idxs = diagind(W)
+      @.. W = dtgamma*J
+      λ = -mass_matrix.λ
+      @.. @view(W[idxs]) = @view(W[idxs]) + λ
+    else
+      @.. W = muladd(dtgamma, J, -mass_matrix)
     end
   end
   return nothing
@@ -323,18 +322,12 @@ function calc_W!(integrator, cache::OrdinaryDiffEqMutableCache, dtgamma, repeat_
   end
 
   # check if we need to update J or W
-  if !DiffEqBase.has_invW(f)
-    W_dt = isnewton ? cache.nlsolver.cache.W_dt : dt # TODO: RosW
-    new_jac = isnewton ? do_newJ(integrator, alg, cache, repeat_step) : true
-    new_W = isnewton ? do_newW(integrator, cache.nlsolver, new_jac, W_dt) : true
-  end
-
+  W_dt = isnewton ? cache.nlsolver.cache.W_dt : dt # TODO: RosW
+  new_jac = isnewton ? do_newJ(integrator, alg, cache, repeat_step) : true
+  new_W = isnewton ? do_newW(integrator, cache.nlsolver, new_jac, W_dt) : true
+  
   # calculate W
-  if DiffEqBase.has_invW(f)
-    # skip calculation of inv(W) if step is repeated
-    (!repeat_step && W_transform) ? f.invW_t(W, uprev, p, dtgamma, t) : f.invW(W, uprev, p, dtgamma, t) # W == inverse W
-    is_compos && calc_J!(integrator, cache, true)
-  elseif DiffEqBase.has_jac(f) && f.jac_prototype !== nothing
+  if DiffEqBase.has_jac(f) && f.jac_prototype !== nothing
     isnewton || DiffEqBase.update_coefficients!(W,uprev,p,t) # we will call `update_coefficients!` in NLNewton
     @label J2W
     W.transform = W_transform; set_gamma!(W, dtgamma)

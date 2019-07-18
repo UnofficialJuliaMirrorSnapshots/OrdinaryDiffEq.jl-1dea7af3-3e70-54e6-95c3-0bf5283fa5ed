@@ -48,7 +48,11 @@ function modify_dt_for_tstops!(integrator)
   end
 end
 
-function savevalues!(integrator::ODEIntegrator,force_save=false,reduce_size=true)::Tuple{Bool,Bool}
+# Want to extend savevalues! for DDEIntegrator
+savevalues!(integrator::ODEIntegrator, force_save = false, reduce_size = true) =
+  _savevalues!(integrator, force_save, reduce_size)
+
+function _savevalues!(integrator, force_save, reduce_size)::Tuple{Bool,Bool}
   saved, savedexactly = false, false
   !integrator.opts.save_on && return saved, savedexactly
   while !isempty(integrator.opts.saveat) && integrator.tdir*top(integrator.opts.saveat) <= integrator.tdir*integrator.t # Perform saveat
@@ -113,7 +117,10 @@ function savevalues!(integrator::ODEIntegrator,force_save=false,reduce_size=true
   return saved, savedexactly
 end
 
-function postamble!(integrator::ODEIntegrator)
+# Want to extend postamble! for DDEIntegrator
+postamble!(integrator::ODEIntegrator) = _postamble!(integrator)
+
+function _postamble!(integrator)
   solution_endpoint_match_cur_integrator!(integrator)
   resize!(integrator.sol.t,integrator.saveiter)
   resize!(integrator.sol.u,integrator.saveiter)
@@ -152,7 +159,10 @@ function solution_endpoint_match_cur_integrator!(integrator)
   end
 end
 
-function loopfooter!(integrator)
+# Want to extend loopfooter! for DDEIntegrator
+loopfooter!(integrator::ODEIntegrator) = _loopfooter!(integrator)
+
+function _loopfooter!(integrator)
 
   # Carry-over from callback
   # This is set to true if u_modified requires callback FSAL reset
@@ -376,7 +386,7 @@ function iip_generate_W(alg,u,uprev,p,t,dt,f,uEltypeNoUnits)
       J = nf.f
       W = WOperator(f.mass_matrix, dt, J, true)
     else
-      if DiffEqBase.has_jac(f) && !DiffEqBase.has_invW(f) && f.jac_prototype !== nothing
+      if DiffEqBase.has_jac(f) && !DiffEqBase.has_Wfact(f) && f.jac_prototype !== nothing
         J = nothing
         W = WOperator(f, dt, true)
       else
