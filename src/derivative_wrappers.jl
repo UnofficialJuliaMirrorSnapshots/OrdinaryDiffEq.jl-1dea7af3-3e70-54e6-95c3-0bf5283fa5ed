@@ -60,10 +60,9 @@ jacobian_autodiff(f, x) = (ForwardDiff.derivative(f,x),1)
 jacobian_autodiff(f, x::AbstractArray) = (ForwardDiff.jacobian(f, x),1)
 function jacobian_autodiff(f, x::AbstractArray, integrator)
   colorvec=integrator.f.colorvec
-  sparsity=integrator.f.jac_prototype
-  jac=integrator.f.jac
-  J=jac isa SparseMatrixCSC ? similar(jac) : zeros(size(jac)...)
-  (forwarddiff_color_jacobian!(J,f,x,color=colorvec,sparsity=sparsity),1)
+  jac=integrator.f.jac_prototype
+  J=jac isa SparseMatrixCSC ? similar(jac) : fill(0.,size(jac))
+  (forwarddiff_color_jacobian!(J,f,x,color=colorvec,sparsity=jac),1)
 end
 #jacobian_autodiff(f, x::AbstractArray, colorvec) = (ForwardDiff.jacobian(f, x, color = colorvec),1)
 
@@ -149,6 +148,33 @@ function DiffEqBase.build_jac_config(alg::OrdinaryDiffEqAlgorithm,f,uf,du1,uprev
     jac_config = nothing
   end
   jac_config
+end
+
+get_chunksize(jac_config::ForwardDiff.JacobianConfig{T,V,N,D}) where {T,V,N,D} = N
+
+function DiffEqBase.resize_jac_config!(jac_config::ForwardDiff.JacobianConfig, i)
+  for j in eachindex(jac_config.duals)
+    resize!(jac_config.duals[j], i)
+  end
+  jac_config
+end
+
+function DiffEqBase.resize_jac_config!(jac_config::DiffEqDiffTools.JacobianCache, i)
+  resize!(jac_config, i)
+  jac_config
+end
+
+function resize_grad_config!(grad_config::ForwardDiff.DerivativeConfig, i)
+  resize!(grad_config.duals, i)
+  grad_config
+end
+
+function resize_grad_config!(grad_config::DiffEqDiffTools.GradientCache, i)
+  @unpack fx, c1, c2 = grad_config
+  fx !== nothing && resize!(fx, i)
+  c1 !== nothing && resize!(c1, i)
+  c2 !== nothing && resize!(c2, i)
+  grad_config
 end
 
 function build_grad_config(alg,f,tf,du1,t)
