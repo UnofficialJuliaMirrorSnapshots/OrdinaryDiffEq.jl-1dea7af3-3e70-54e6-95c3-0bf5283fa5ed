@@ -40,7 +40,7 @@ module OrdinaryDiffEq
 
   using DiffEqBase: check_error!, @def, @.. , _vec, _reshape
 
-  using DiffEqBase: nlsolvefail, isnewton, set_new_W!, get_W, iipnlsolve, oopnlsolve, @getiipnlsolvefields, @getoopnlsolvefields
+  using DiffEqBase: nlsolvefail, isnewton, set_new_W!, get_W, iipnlsolve, oopnlsolve
 
   using DiffEqBase: NLSolver
 
@@ -51,6 +51,8 @@ module OrdinaryDiffEq
   import DiffEqBase: iip_get_uf, oop_get_uf, build_jac_config
 
   import SparseDiffTools: forwarddiff_color_jacobian!, ForwardColorJacCache
+
+  using MacroTools
 
   const CompiledFloats = Union{Float32,Float64,
     ForwardDiff.Dual{ForwardDiff.Tag{T,W},K,3} where {T,W<:Union{Float64,Float32},
@@ -190,9 +192,9 @@ module OrdinaryDiffEq
 
   export RadauIIA5
 
-  export ImplicitEuler, ImplicitMidpoint, Trapezoid, TRBDF2, SDIRK2, Kvaerno3,
-         KenCarp3, Cash4, Hairer4, Hairer42, SSPSDIRK2, Kvaerno4, Kvaerno5,
-         KenCarp4, KenCarp5, ESDIRK54I8L2SA
+  export ImplicitEuler, ImplicitMidpoint, Trapezoid, TRBDF2, SDIRK2, SDIRK22,
+         Kvaerno3, KenCarp3, Cash4, Hairer4, Hairer42, SSPSDIRK2, Kvaerno4,
+         Kvaerno5, KenCarp4, KenCarp5, ESDIRK54I8L2SA
 
   export GenericImplicitEuler, GenericTrapezoid
 

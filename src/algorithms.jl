@@ -53,14 +53,15 @@ struct ImplicitEulerExtrapolation{CS,AD,F,F2} <: OrdinaryDiffEqImplicitExtrapola
   max_order::Int
   min_order::Int
   init_order::Int
+  threading::Bool
 end
 
 
 ImplicitEulerExtrapolation(;chunk_size=0,autodiff=true,diff_type=Val{:forward},
                           linsolve=DEFAULT_LINSOLVE,
-                          max_order=10,min_order=1,init_order=5) =
+                          max_order=10,min_order=1,init_order=5,threading=true) =
                           ImplicitEulerExtrapolation{chunk_size,autodiff,
-                          typeof(linsolve),typeof(diff_type)}(linsolve,max_order,min_order,init_order)
+                          typeof(linsolve),typeof(diff_type)}(linsolve,max_order,min_order,init_order,threading)
 
 struct ExtrapolationMidpointDeuflhard <: OrdinaryDiffEqExtrapolationVarOrderVarStepAlgorithm
   n_min::Int # Minimal extrapolation order
@@ -732,6 +733,21 @@ SDIRK2(;chunk_size=0,autodiff=true,diff_type=Val{:forward},
                    controller = :Standard) =
  SDIRK2{chunk_size,autodiff,typeof(linsolve),typeof(nlsolve),typeof(diff_type)}(
         linsolve,nlsolve,diff_type,smooth_est,extrapolant,controller)
+
+struct SDIRK22{CS,AD,F,F2,FDT} <: OrdinaryDiffEqNewtonAdaptiveAlgorithm{CS,AD}
+  linsolve::F
+  nlsolve::F2
+  diff_type::FDT
+  extrapolant::Symbol
+  controller::Symbol
+end
+SDIRK22(;chunk_size=0,autodiff=true,diff_type=Val{:forward},
+                      linsolve=DEFAULT_LINSOLVE,nlsolve=NLNewton(),
+                                            extrapolant=:linear,
+                      controller = :Standard) =
+                      Trapezoid{chunk_size,autodiff,typeof(linsolve),typeof(nlsolve),typeof(diff_type)}(
+                      linsolve,nlsolve,diff_type,extrapolant,controller)
+
 
 struct SSPSDIRK2{CS,AD,F,F2,FDT} <: OrdinaryDiffEqNewtonAlgorithm{CS,AD} # Not adaptive
   linsolve::F
