@@ -1,7 +1,7 @@
 name = "OrdinaryDiffEq"
 uuid = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 authors = ["Chris Rackauckas <accounts@chrisrackauckas.com>"]
-version = "5.16.0"
+version = "5.17.0"
 
 [deps]
 ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
@@ -34,7 +34,7 @@ GenericSVD = "0.2"
 MacroTools = "0.5"
 MuladdMacro = "0.2.1"
 NLsolve = "4"
-Parameters = "0.10, 0.11"
+Parameters = "0.10, 0.11, 0.12"
 RecursiveArrayTools = "1"
 Reexport = "0.2"
 SparseDiffTools = "0.9"
