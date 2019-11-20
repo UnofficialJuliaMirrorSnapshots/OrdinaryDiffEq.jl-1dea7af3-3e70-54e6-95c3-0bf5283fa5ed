@@ -84,6 +84,7 @@ end
 @inline DiffEqBase.get_tmp_cache(integrator,alg::CompositeAlgorithm, cache) = get_tmp_cache(integrator, integrator.alg.algs[1], cache.caches[1])
 
 full_cache(integrator::ODEIntegrator) = full_cache(integrator.cache)
+full_cache(integrator::CompositeCache) = Iterators.flatten(full_cache(c) for c in integrator.caches)
 
 function add_tstop!(integrator::ODEIntegrator,t)
   integrator.tdir * (t - integrator.t) < zero(integrator.t) && error("Tried to add a tstop that is behind the current time. This is strictly forbidden")
@@ -138,17 +139,31 @@ deleteat_non_user_cache!(integrator::ODEIntegrator,i) = deleteat_non_user_cache!
 addat_non_user_cache!(integrator::ODEIntegrator,i) = addat_non_user_cache!(integrator,integrator.cache,i)
 
 resize_non_user_cache!(integrator::ODEIntegrator,cache,i) = nothing
+
+function resize_non_user_cache!(integrator::ODEIntegrator,cache::CompositeCache,i)
+  for _cache in cache.caches
+    resize_non_user_cache!(integrator,_cache,i)
+  end
+end
+
+function deleteat_non_user_cache!(integrator::ODEIntegrator,cache::CompositeCache,i)
+  for _cache in cache.caches
+    deleteat_non_user_cache!(integrator,_cache,i)
+  end
+end
+
+function addat_non_user_cache!(integrator::ODEIntegrator,cache::CompositeCache,i)
+  for _cache in cache.caches
+    addat_non_user_cache!(integrator,_cache,i)
+  end
+end
+
 function resize_non_user_cache!(integrator::ODEIntegrator,
                       cache::RosenbrockMutableCache,i)
   cache.J = similar(cache.J,i,i)
   cache.W = similar(cache.W,i,i)
   resize_jac_config!(cache.jac_config, i)
   resize_grad_config!(cache.grad_config, i)
-  nothing
-end
-function resize_non_user_cache!(integrator::ODEIntegrator,
-                cache::Union{GenericImplicitEulerCache,GenericTrapezoidCache},i)
-  cache.nl_rhs = integrator.alg.nlsolve(Val{:init},cache.rhs,cache.u)
   nothing
 end
 
